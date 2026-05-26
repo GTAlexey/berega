@@ -255,22 +255,26 @@ function Graph({ selected, setSelected, elements, artifacts, setElements }: { se
     };
   }, [focusId, focusedElement, selected, elements]);
   const sankeyOption = useMemo(() => {
-    const systemNode = 'Единая система';
+    const systemNodeId = 'sankey-system';
     const visibleElements = normalizeElements(elements).filter((e: any) => e.status !== 'merged' && e.status !== 'deprecated');
-    const nodes = [
-      ...kits.map(k => ({ name: k.name, itemStyle: { color: k.color.border } })),
-      ...visibleElements.map((e: any) => ({ name: e.name, itemStyle: { color: e.status === 'unique' ? '#ef4444' : e.status === 'locked' ? '#f97316' : '#38bdf8' } })),
-      { name: systemNode, itemStyle: { color: '#22c55e' } }
-    ];
+    const connectedKitIds = new Set(visibleElements.flatMap((e: any) => (e.kits ?? []).filter((kitId: string) => kits.some(k => k.id === kitId))));
+    const kitNodes = kits.filter(k => connectedKitIds.has(k.id)).map(k => ({ id: k.id, name: k.name, itemStyle: { color: k.color.border } }));
+    const elementNodes = visibleElements.map((e: any) => ({ id: e.id, name: e.name, itemStyle: { color: e.status === 'unique' ? '#ef4444' : e.status === 'locked' ? '#f97316' : '#38bdf8' } }));
     const kitLinks = visibleElements.flatMap((e: any) => (e.kits ?? []).map((kitId: string) => {
       const kit = kits.find(k => k.id === kitId);
-      return kit ? { source: kit.name, target: e.name, value: 1, lineStyle: { color: kit.color.border, opacity: 0.42 } } : null;
+      return kit ? { source: kit.id, target: e.id, value: 1, lineStyle: { color: kit.color.border, opacity: 0.42 } } : null;
     }).filter(Boolean));
-    const systemLinks = visibleElements.map((e: any) => ({ source: e.name, target: systemNode, value: 1, lineStyle: { color: 'source', opacity: 0.34 } }));
+    const systemLinks = visibleElements.map((e: any) => ({ source: e.id, target: systemNodeId, value: 1, lineStyle: { color: 'source', opacity: 0.34 } }));
+    const links = [...kitLinks, ...systemLinks];
+    if (!links.length) return {
+      backgroundColor: 'transparent',
+      title: { text: 'Санкей появится после добавления элементов', subtext: 'Создайте элемент из артефакта или подключите существующий к киту', left: 'center', top: 'center', textStyle: { color: '#e2e8f0', fontSize: 16, fontWeight: 800 }, subtextStyle: { color: '#94a3b8', fontSize: 12 } },
+      series: []
+    };
     return {
       backgroundColor: 'transparent',
       tooltip: { trigger: 'item', triggerOn: 'mousemove', backgroundColor: '#0f172a', borderColor: '#334155', textStyle: { color: '#f8fafc' } },
-      series: [{ type: 'sankey', left: 64, right: 64, top: 40, bottom: 36, nodeWidth: 18, nodeGap: 14, draggable: false, emphasis: { focus: 'adjacency' }, label: { color: '#e2e8f0', fontSize: 12, fontWeight: 700 }, itemStyle: { borderColor: '#0f172a', borderWidth: 1 }, lineStyle: { color: 'gradient', curveness: 0.52, opacity: 0.34 }, data: nodes, links: [...kitLinks, ...systemLinks] }]
+      series: [{ type: 'sankey', left: 64, right: 64, top: 40, bottom: 36, nodeWidth: 18, nodeGap: 14, draggable: false, emphasis: { focus: 'adjacency' }, label: { color: '#e2e8f0', fontSize: 12, fontWeight: 700 }, itemStyle: { borderColor: '#0f172a', borderWidth: 1 }, lineStyle: { color: 'gradient', curveness: 0.52, opacity: 0.34 }, data: [...kitNodes, ...elementNodes, { id: systemNodeId, name: 'Единая система', itemStyle: { color: '#22c55e' } }], links }]
     };
   }, [elements]);
   return <div className="graph-wrap"><Panel className="element-list-panel"><h3>Киты и элементы</h3>{actionMode && <p className="merge-pick-hint">{actionMode === 'kits' ? 'Выберите кит или элемент' : 'Выберите элемент для замещения'}</p>}{kits.map(k => <div key={k.id} className="left-kit-group"><button className="left-kit-title" style={{color: k.color.border}} onMouseEnter={() => setHovered(null)} onClick={() => toggleSelectedKit(k.id)}>{k.name}</button>{elements.filter(e => (e.kits ?? []).includes(k.id)).map(e => <button key={`${k.id}-${e.id}`} className={`element-list-item ${selected === e.id ? 'active' : ''} ${hovered === e.id ? 'hovered' : ''}`} onMouseEnter={() => setHovered(e.id)} onMouseLeave={() => setHovered(null)} onClick={() => applyMergePick(e.id)}>{e.name}</button>)}</div>)}<div className="left-kit-group"><b className="left-kit-title muted">Без кита</b>{elements.filter(e => !(e.kits ?? []).length).map(e => <button key={e.id} className={`element-list-item ${selected === e.id ? 'active' : ''} ${hovered === e.id ? 'hovered' : ''}`} onMouseEnter={() => setHovered(e.id)} onMouseLeave={() => setHovered(null)} onClick={() => applyMergePick(e.id)}>{e.name}</button>)}</div></Panel><div className="graph-canvas-panel"><div className="visual-mode-switch" role="group" aria-label="Режим визуализации"><button className={visualMode === 'graph' ? 'active' : ''} onClick={() => setVisualMode('graph')}>Текущая</button><button className={visualMode === 'sankey' ? 'active' : ''} onClick={() => setVisualMode('sankey')}>Санкей</button></div><ReactECharts key={visualMode} className="echarts-graph" style={{ width: '100%', height: '100%' }} option={visualMode === 'sankey' ? sankeyOption : option} notMerge={true} onChartReady={(chart: any) => chart.getZr().on('click', (event: any) => { if (visualMode === 'graph' && !event.target && !actionMode) setSelected(null); })} onEvents={{ mouseover: (params: any) => { if (visualMode === 'graph' && params.dataType === 'node' && elements.some(e => e.id === params.data?.id)) setHovered(params.data.id); }, mouseout: () => setHovered(null), click: (params: any) => { if (visualMode !== 'graph') return; if (params.dataType === 'node' && elements.some(e => e.id === params.data?.id)) applyMergePick(params.data.id); if (params.dataType === 'node' && kits.some(k => k.id === params.data?.id)) toggleSelectedKit(params.data.id); } }} /></div><GraphInfoPanel element={selectedElement} hoverElement={hoverElement} elements={elements} setElements={setElements} actionMode={actionMode} setActionMode={setActionMode}/></div>;
