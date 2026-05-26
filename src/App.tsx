@@ -256,26 +256,84 @@ function Graph({ selected, setSelected, elements, artifacts, setElements }: { se
     };
   }, [focusId, focusedElement, selected, elements]);
   const sankeyOption = useMemo(() => {
-    const systemNodeId = 'sankey-system';
-    const visibleElements = normalizeElements(elements).filter((e: any) => e.status !== 'merged' && e.status !== 'deprecated');
-    const connectedKitIds = new Set(visibleElements.flatMap((e: any) => (e.kits ?? []).filter((kitId: string) => kits.some(k => k.id === kitId))));
-    const kitNodes = kits.filter(k => connectedKitIds.has(k.id)).map(k => ({ id: k.id, name: k.name, itemStyle: { color: k.color.border } }));
-    const elementNodes = visibleElements.map((e: any) => ({ id: e.id, name: e.name, itemStyle: { color: e.status === 'unique' ? '#ef4444' : e.status === 'locked' ? '#f97316' : '#38bdf8' } }));
-    const kitLinks = visibleElements.flatMap((e: any) => (e.kits ?? []).map((kitId: string) => {
-      const kit = kits.find(k => k.id === kitId);
-      return kit ? { source: kit.id, target: e.id, value: 1, lineStyle: { color: kit.color.border, opacity: 0.42 } } : null;
-    }).filter(Boolean));
-    const systemLinks = visibleElements.map((e: any) => ({ source: e.id, target: systemNodeId, value: 1, lineStyle: { color: 'source', opacity: 0.34 } }));
-    const links = [...kitLinks, ...systemLinks];
+    const escapeHtml = (value: any) => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char] ?? char));
+    const normalized = normalizeElements(elements).filter((e: any) => e && e.id);
+    const kitById = new Map(kits.map(k => [k.id, k]));
+    const elementById = new Map<string, any>();
+    const orderedElementIds: string[] = [];
+    normalized.forEach((e: any) => {
+      const id = String(e.id);
+      if (elementById.has(id)) return;
+      elementById.set(id, { ...e, id });
+      orderedElementIds.push(id);
+    });
+    const connectedKitIds = new Set<string>();
+    const connectedElementIds = new Set<string>();
+    const nodeNames = new Map<string, string>();
+    const linkKeys = new Set<string>();
+    const links: any[] = [];
+    kits.forEach(k => nodeNames.set(k.id, k.name));
+    elementById.forEach((e, id) => nodeNames.set(id, e.name ?? id));
+    const addLink = (source: string, target: string, relation: 'kit' | 'merge', lineStyle: any) => {
+      if (!source || !target || source === target) return;
+      const key = `${relation}:${source}->${target}`;
+      if (linkKeys.has(key)) return;
+      linkKeys.add(key);
+      links.push({ source, target, value: 1, relation, lineStyle });
+    };
+    elementById.forEach((e, elementId) => {
+      const elementKitIds = Array.isArray(e.kits) ? Array.from(new Set(e.kits.map((id: any) => String(id)))) : [];
+      elementKitIds.forEach((kitId: string) => {
+        const kit = kitById.get(kitId);
+        if (!kit) return;
+        connectedKitIds.add(kitId);
+        connectedElementIds.add(elementId);
+        addLink(kitId, elementId, 'kit', { color: kit.color.border, opacity: 0.48 });
+      });
+    });
+    const addMergeLink = (sourceId: string, targetId: string) => {
+      if (!elementById.has(sourceId) || !elementById.has(targetId)) return;
+      connectedElementIds.add(sourceId);
+      connectedElementIds.add(targetId);
+      addLink(sourceId, targetId, 'merge', { color: '#22c55e', opacity: 0.46, curveness: 0.58 });
+    };
+    elementById.forEach((e, elementId) => {
+      if (Array.isArray(e.replaces)) e.replaces.map((id: any) => String(id)).forEach((oldId: string) => addMergeLink(oldId, elementId));
+      if (e.replacedBy) addMergeLink(elementId, String(e.replacedBy));
+    });
     if (!links.length) return {
       backgroundColor: 'transparent',
-      title: { text: 'Санкей появится после добавления элементов', subtext: 'Создайте элемент из артефакта или подключите существующий к киту', left: 'center', top: 'center', textStyle: { color: '#e2e8f0', fontSize: 16, fontWeight: 800 }, subtextStyle: { color: '#94a3b8', fontSize: 12 } },
+      title: { text: 'Санкей появится после фактических связей', subtext: 'Подключите элемент к киту или объедините элементы', left: 'center', top: 'center', textStyle: { color: '#e2e8f0', fontSize: 16, fontWeight: 800 }, subtextStyle: { color: '#94a3b8', fontSize: 12 } },
       series: []
     };
+    const kitNodes = kits.filter(k => connectedKitIds.has(k.id)).map(k => ({ id: k.id, name: k.id, displayName: k.name, nodeType: 'kit', itemStyle: { color: k.color.border }, label: { color: '#f8fafc', fontWeight: 800 } }));
+    const elementNodes = orderedElementIds.filter(id => connectedElementIds.has(id)).map(id => {
+      const e = elementById.get(id);
+      return { id, name: id, displayName: e.name ?? id, nodeType: 'element', status: e.status, itemStyle: { color: e.status === 'unique' ? '#ef4444' : e.status === 'locked' ? '#f97316' : e.status === 'merged' ? '#22c55e' : '#38bdf8' } };
+    });
+    const nodeCount = kitNodes.length + elementNodes.length;
+    const nodeGap = Math.max(2, Math.min(16, Math.floor(420 / Math.max(nodeCount, 1))));
+    const nodeWidth = nodeCount > 90 ? 8 : nodeCount > 48 ? 10 : 16;
+    const labelWidth = nodeCount > 90 ? 70 : nodeCount > 48 ? 96 : 150;
+    const labelFontSize = nodeCount > 90 ? 9 : nodeCount > 48 ? 10 : 12;
+    const maxLabelChars = nodeCount > 90 ? 12 : nodeCount > 48 ? 16 : 28;
+    const chartPad = nodeCount > 70 ? 18 : 48;
+    const formatName = (value: any) => { const text = String(value ?? ''); return text.length > maxLabelChars ? `${text.slice(0, maxLabelChars - 1)}…` : text; };
     return {
       backgroundColor: 'transparent',
-      tooltip: { trigger: 'item', triggerOn: 'mousemove', backgroundColor: '#0f172a', borderColor: '#334155', textStyle: { color: '#f8fafc' } },
-      series: [{ type: 'sankey', left: 64, right: 64, top: 40, bottom: 36, nodeWidth: 18, nodeGap: 14, draggable: false, emphasis: { focus: 'adjacency' }, label: { color: '#e2e8f0', fontSize: 12, fontWeight: 700 }, itemStyle: { borderColor: '#0f172a', borderWidth: 1 }, lineStyle: { color: 'gradient', curveness: 0.52, opacity: 0.34 }, data: [...kitNodes, ...elementNodes, { id: systemNodeId, name: 'Единая система', itemStyle: { color: '#22c55e' } }], links }]
+      tooltip: { trigger: 'item', triggerOn: 'mousemove', confine: true, backgroundColor: '#0f172a', borderColor: '#334155', textStyle: { color: '#f8fafc' }, formatter: (params: any) => {
+        const data = params.data ?? {};
+        if (params.dataType === 'edge') {
+          const source = escapeHtml(nodeNames.get(data.source) ?? data.source);
+          const target = escapeHtml(nodeNames.get(data.target) ?? data.target);
+          const relation = data.relation === 'merge' ? 'Объединение / замещение' : 'Вложение элемента в кит';
+          return `<b>${relation}</b><br/>${source} → ${target}`;
+        }
+        const type = data.nodeType === 'kit' ? 'Кит' : 'Элемент';
+        const status = data.status ? `<br/>Статус: ${escapeHtml(data.status)}` : '';
+        return `<b>${type}</b><br/>${escapeHtml(data.displayName ?? data.name)}${status}`;
+      } },
+      series: [{ type: 'sankey', left: chartPad, right: chartPad, top: 28, bottom: 24, nodeAlign: 'justify', nodeWidth, nodeGap, layoutIterations: 64, draggable: false, emphasis: { focus: 'adjacency' }, label: { color: '#e2e8f0', fontSize: labelFontSize, fontWeight: 700, width: labelWidth, overflow: 'truncate', formatter: (params: any) => formatName(params.data?.displayName ?? params.name) }, itemStyle: { borderColor: '#0f172a', borderWidth: 1 }, lineStyle: { color: 'gradient', curveness: 0.52, opacity: 0.36 }, data: [...kitNodes, ...elementNodes], links }]
     };
   }, [elements]);
   return <div className="graph-wrap"><Panel className="element-list-panel"><h3>Киты и элементы</h3>{actionMode && <p className="merge-pick-hint">{actionMode === 'kits' ? 'Выберите кит или элемент' : 'Выберите элемент для замещения'}</p>}{kits.map(k => <div key={k.id} className="left-kit-group"><button className="left-kit-title" style={{color: k.color.border}} onMouseEnter={() => setHovered(null)} onClick={() => toggleSelectedKit(k.id)}>{k.name}</button>{elements.filter(e => (e.kits ?? []).includes(k.id)).map(e => <button key={`${k.id}-${e.id}`} className={`element-list-item ${selected === e.id ? 'active' : ''} ${hovered === e.id ? 'hovered' : ''}`} onMouseEnter={() => setHovered(e.id)} onMouseLeave={() => setHovered(null)} onClick={() => applyMergePick(e.id)}>{e.name}</button>)}</div>)}<div className="left-kit-group"><b className="left-kit-title muted">Без кита</b>{elements.filter(e => !(e.kits ?? []).length).map(e => <button key={e.id} className={`element-list-item ${selected === e.id ? 'active' : ''} ${hovered === e.id ? 'hovered' : ''}`} onMouseEnter={() => setHovered(e.id)} onMouseLeave={() => setHovered(null)} onClick={() => applyMergePick(e.id)}>{e.name}</button>)}</div></Panel><div className="graph-canvas-panel"><div className="visual-mode-switch" role="group" aria-label="Режим визуализации"><button className={visualMode === 'graph' ? 'active' : ''} onClick={() => setVisualMode('graph')}>Связи</button><button className={visualMode === 'sankey' ? 'active' : ''} onClick={() => setVisualMode('sankey')}>Санкей</button></div><ReactECharts key={visualMode} className="echarts-graph" style={{ width: '100%', height: '100%' }} option={visualMode === 'sankey' ? sankeyOption : option} notMerge={true} onChartReady={(chart: any) => chart.getZr().on('click', (event: any) => { if (visualMode === 'graph' && !event.target && !actionMode) setSelected(null); })} onEvents={{ mouseover: (params: any) => { if (visualMode === 'graph' && params.dataType === 'node' && elements.some(e => e.id === params.data?.id)) setHovered(params.data.id); }, mouseout: () => setHovered(null), click: (params: any) => { if (visualMode !== 'graph') return; if (params.dataType === 'node' && elements.some(e => e.id === params.data?.id)) applyMergePick(params.data.id); if (params.dataType === 'node' && kits.some(k => k.id === params.data?.id)) toggleSelectedKit(params.data.id); } }} /></div><GraphInfoPanel element={selectedElement} hoverElement={hoverElement} elements={elements} setElements={setElements} actionMode={actionMode} setActionMode={setActionMode}/></div>;
