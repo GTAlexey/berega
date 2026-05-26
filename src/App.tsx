@@ -77,29 +77,32 @@ function KitMiniProgressViz({ stats }: { stats: KitStats }) {
   const done = Math.max(0, Math.min(stats.done ?? 0, total));
   const todo = Math.max(0, total - done);
   const readiness = Math.max(0, Math.min(100, stats.readiness ?? 0));
-  const radius = 16;
-  const circumference = 2 * Math.PI * radius;
-  const dashOffset = circumference - (readiness / 100) * circumference;
   const doneWidth = total ? (done / total) * 100 : 0;
+  const markerLeft = Math.max(0, Math.min(100, doneWidth));
+  const addedPeriod = Math.max(0, stats.addedPeriod ?? 0);
+  const donePeriod = Math.max(0, stats.donePeriod ?? 0);
+  const periodNet = donePeriod - addedPeriod;
+  const balanceText = periodNet > 0 ? `Остаток −${periodNet}` : periodNet < 0 ? `Остаток +${Math.abs(periodNet)}` : 'Остаток 0';
+  const balanceAria = periodNet > 0 ? `остаток задач уменьшился на ${periodNet}` : periodNet < 0 ? `остаток задач увеличился на ${Math.abs(periodNet)}` : 'остаток задач не изменился';
 
-  return <div className="mini-progress-viz">
-    <div className="mini-progress-ring" aria-hidden="true">
-      <svg viewBox="0 0 40 40">
-        <circle className="ring-bg" cx="20" cy="20" r={radius} />
-        <circle className="ring-value" cx="20" cy="20" r={radius} strokeDasharray={circumference} strokeDashoffset={dashOffset} />
-      </svg>
-      <div className="ring-label"><b>{readiness}%</b></div>
-      <div className="ring-caption">готово</div>
+  return <div className="mini-progress-viz kpv" role="group" aria-label={`Готовность ${readiness}%. Сделано ${done} из ${total}. Осталось ${todo}. За период закрыто ${donePeriod}, добавлено ${addedPeriod}; ${balanceAria}.`}>
+    <div className="kpv-summary">
+      <div className="kpv-main-count"><span>Готово</span><b>{done} из {total}</b></div>
+      <strong className="kpv-percent">{readiness}%</strong>
     </div>
-    <div className="mini-progress-body">
-      <div className="mini-progress-bar" role="img" aria-label={`Сделано ${done} из ${total}, осталось ${todo}`}>
-        <span className="done" style={{ width: `${doneWidth}%` }} />
+    <div className="kpv-ruler" role="img" aria-label={`Линейка прогресса: сделано ${done} из ${total}, осталось ${todo}`}>
+      <div className="kpv-ruler-scale" aria-hidden="true"><span>0</span><span>{total}</span></div>
+      <div className="kpv-track" aria-hidden="true">
+        <span className="kpv-fill" style={{ width: `${doneWidth}%` }} />
+        <i className="kpv-marker" style={{ left: `${markerLeft}%` }} />
       </div>
-      <div className="mini-progress-meta"><span>Шаги: <b>{done}/{total}</b></span><span>Осталось: <b>{todo}</b></span></div>
-      <div className="mini-period-deltas">
-        <em className={`delta-chip add ${metricDeltaClass(stats.addedPeriod)}`}>{deltaText(stats.addedPeriod)} добавлено</em>
-        <em className={`delta-chip done ${metricDeltaClass(stats.donePeriod)}`}>{deltaText(stats.donePeriod)} закрыто</em>
-      </div>
+      <div className="kpv-ruler-caption"><span>{done} сделано</span><span>{todo} осталось</span></div>
+    </div>
+    <div className="kpv-period" aria-label={`За период закрыто ${donePeriod}, добавлено ${addedPeriod}. ${balanceAria}.`}>
+      <span className="kpv-period-title">За период</span>
+      <span>Закрыто <b>{deltaText(donePeriod)}</b></span>
+      <span>Добавлено <b>{deltaText(addedPeriod)}</b></span>
+      <span className={`kpv-balance ${metricDeltaClass(periodNet)}`}>{balanceText}</span>
     </div>
   </div>;
 }
