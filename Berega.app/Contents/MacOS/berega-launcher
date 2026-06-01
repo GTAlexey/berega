@@ -1,0 +1,58 @@
+#!/bin/zsh
+set -euo pipefail
+
+APP_DIR="$(cd "$(dirname "$0")/../../.." && pwd)"
+LOG_FILE="$APP_DIR/berega-launcher.log"
+PORT="${BEREGA_PORT:-5173}"
+URL="http://localhost:$PORT"
+export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.volta/bin:$HOME/.asdf/shims:$HOME/.nvm/current/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
+
+log() {
+  printf '[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*" >> "$LOG_FILE"
+}
+
+notify() {
+  /usr/bin/osascript -e "display notification \"$1\" with title \"Берега\"" >/dev/null 2>&1 || true
+}
+
+fail() {
+  log "ERROR: $*"
+  /usr/bin/osascript -e "display alert \"Берега\" message \"$*\" as critical" >/dev/null 2>&1 || true
+  exit 1
+}
+
+cd "$APP_DIR"
+log "Launcher started in $APP_DIR"
+
+if ! command -v npm >/dev/null 2>&1; then
+  fail "npm не найден. Установи Node.js: https://nodejs.org/"
+fi
+
+if [ ! -d "$APP_DIR/node_modules" ]; then
+  notify "Ставлю зависимости..."
+  log "node_modules missing, running npm install"
+  npm install >> "$LOG_FILE" 2>&1 || fail "npm install не сработал. Детали: $LOG_FILE"
+fi
+
+if ! /usr/bin/curl -fsS "$URL" >/dev/null 2>&1; then
+  log "Starting Vite on port $PORT"
+  nohup npm run dev -- --host 127.0.0.1 --port "$PORT" >> "$LOG_FILE" 2>&1 &
+  SERVER_PID=$!
+  log "Started npm run dev with PID $SERVER_PID"
+
+  for _ in {1..40}; do
+    if /usr/bin/curl -fsS "$URL" >/dev/null 2>&1; then
+      break
+    fi
+    sleep 0.5
+  done
+fi
+
+if ! /usr/bin/curl -fsS "$URL" >/dev/null 2>&1; then
+  fail "Не смог запустить приложение на $URL. Детали: $LOG_FILE"
+fi
+
+log "Opening $URL"
+/usr/bin/open "$URL"
+notify "Берега запущены"
+exit 0
