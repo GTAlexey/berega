@@ -1,14 +1,32 @@
 #!/bin/zsh
 set -euo pipefail
 
-APP_DIR="$(cd "$(dirname "$0")/../../.." && pwd)"
-LOG_FILE="$APP_DIR/berega-launcher.log"
+PROJECT_DIR="/Users/Alexey/Documents/The Omnissiah/berega"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+BUNDLE_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+BUNDLE_PARENT="$(cd "$BUNDLE_DIR/.." && pwd)"
+
+if [ -f "$BUNDLE_PARENT/package.json" ] && [ -d "$BUNDLE_PARENT/src" ]; then
+  APP_DIR="$BUNDLE_PARENT"
+elif [ -f "$PROJECT_DIR/package.json" ] && [ -d "$PROJECT_DIR/src" ]; then
+  APP_DIR="$PROJECT_DIR"
+else
+  APP_DIR="$BUNDLE_PARENT"
+fi
+
+LOG_DIR="$HOME/Library/Logs/Berega"
+LOG_FILE="$LOG_DIR/berega-launcher.log"
+PROJECT_LOG_FILE="$APP_DIR/berega-launcher.log"
 PORT="${BEREGA_PORT:-5173}"
-URL="http://localhost:$PORT"
-export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.volta/bin:$HOME/.asdf/shims:$HOME/.nvm/current/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
+URL="http://127.0.0.1:$PORT"
+
+mkdir -p "$LOG_DIR"
 
 log() {
-  printf '[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*" >> "$LOG_FILE"
+  local line
+  line="[$(date '+%Y-%m-%d %H:%M:%S')] $*"
+  printf '%s\n' "$line" >> "$LOG_FILE"
+  printf '%s\n' "$line" >> "$PROJECT_LOG_FILE" 2>/dev/null || true
 }
 
 notify() {
@@ -21,12 +39,44 @@ fail() {
   exit 1
 }
 
+load_node_environment() {
+  export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.volta/bin:$HOME/.asdf/shims:/usr/bin:/bin:/usr/sbin:/sbin:${PATH:-}"
+
+  if command -v npm >/dev/null 2>&1; then
+    return 0
+  fi
+
+  export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+  if [ -s "$NVM_DIR/nvm.sh" ]; then
+    . "$NVM_DIR/nvm.sh" >/dev/null 2>&1 || true
+    nvm use --silent default >/dev/null 2>&1 || nvm use --silent node >/dev/null 2>&1 || true
+  fi
+
+  if ! command -v npm >/dev/null 2>&1; then
+    local latest_node_bin
+    latest_node_bin="$(/bin/ls -td "$NVM_DIR"/versions/node/*/bin(N) 2>/dev/null | /usr/bin/sed -n '1p' || true)"
+    if [ -n "$latest_node_bin" ]; then
+      export PATH="$latest_node_bin:$PATH"
+    fi
+  fi
+}
+
+log "Launcher started from $BUNDLE_DIR"
+log "Resolved app directory: $APP_DIR"
+
+if [ ! -f "$APP_DIR/package.json" ]; then
+  fail "package.json не найден в $APP_DIR. Ярлык должен знать путь к проекту: $PROJECT_DIR"
+fi
+
 cd "$APP_DIR"
-log "Launcher started in $APP_DIR"
+load_node_environment
 
 if ! command -v npm >/dev/null 2>&1; then
-  fail "npm не найден. Установи Node.js: https://nodejs.org/"
+  fail "npm не найден. Установи Node.js или nvm, затем запусти снова. Лог: $LOG_FILE"
 fi
+
+log "Using node: $(command -v node || true)"
+log "Using npm: $(command -v npm)"
 
 if [ ! -d "$APP_DIR/node_modules" ]; then
   notify "Ставлю зависимости..."
@@ -40,7 +90,7 @@ if ! /usr/bin/curl -fsS "$URL" >/dev/null 2>&1; then
   SERVER_PID=$!
   log "Started npm run dev with PID $SERVER_PID"
 
-  for _ in {1..40}; do
+  for _ in {1..60}; do
     if /usr/bin/curl -fsS "$URL" >/dev/null 2>&1; then
       break
     fi

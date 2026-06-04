@@ -525,7 +525,7 @@
 
 .stages-screen .flow-column:not(.artifact-column) {
   overflow: hidden !important;
-  contain: layout paint !important;
+  contain: none !important;
 }
 
 .stages-screen .flow-column > .column-head,
@@ -603,7 +603,7 @@
 
 .brand-screen {
   display: grid !important;
-  grid-template-rows: auto minmax(0, 1fr) !important;
+  grid-template-rows: 180px minmax(0, 1fr) !important;
   gap: 14px !important;
   overflow: hidden !important;
   background: radial-gradient(circle at 8% 12%, rgba(59, 130, 246, .16), transparent 30%), radial-gradient(circle at 92% 0%, rgba(245, 158, 11, .14), transparent 28%), linear-gradient(135deg, #08111f 0%, #0b1220 58%, #111827 100%) !important;
@@ -614,6 +614,7 @@
   grid-template-columns: minmax(260px, 1.35fr) repeat(3, minmax(170px, 1fr)) !important;
   gap: 14px !important;
   min-height: 0 !important;
+  overflow: hidden !important;
 }
 
 .brand-status-card,
@@ -632,8 +633,8 @@
   display: flex !important;
   flex-direction: column !important;
   justify-content: space-between !important;
-  gap: 12px !important;
-  padding: 16px !important;
+  gap: 10px !important;
+  padding: 14px !important;
   overflow: hidden !important;
 }
 
@@ -681,7 +682,7 @@
 
 .brand-readiness strong {
   color: #f8fafc !important;
-  font-size: clamp(42px, 5vw, 76px) !important;
+  font-size: clamp(36px, 4vw, 56px) !important;
   line-height: .9 !important;
   letter-spacing: -.07em !important;
 }
@@ -694,7 +695,6 @@
 
 .brand-gauge,
 .brand-risk-meter,
-.brand-merge-line,
 .brand-kit-progress {
   position: relative !important;
   overflow: hidden !important;
@@ -703,18 +703,16 @@
 }
 
 .brand-gauge {
-  height: 13px !important;
+  height: 10px !important;
 }
 
 .brand-risk-meter,
-.brand-merge-line,
 .brand-kit-progress {
   height: 8px !important;
 }
 
 .brand-gauge span,
 .brand-risk-meter span,
-.brand-merge-line span,
 .brand-kit-progress span {
   display: block !important;
   height: 100% !important;
@@ -730,9 +728,6 @@
   background: linear-gradient(90deg, #f59e0b, #ef4444) !important;
 }
 
-.brand-merge-line span {
-  background: linear-gradient(90deg, #8b5cf6, #38bdf8) !important;
-}
 
 .brand-status-split,
 .brand-fact-grid {
@@ -773,61 +768,45 @@
   border-color: rgba(56, 189, 248, .26) !important;
 }
 
+.brand-volume-score,
+.brand-merge-score {
+  display: flex !important;
+  align-items: end !important;
+  justify-content: space-between !important;
+  gap: 10px !important;
+}
+
+.brand-volume-score strong,
+.brand-merge-score strong {
+  color: #f8fafc !important;
+  font-size: 34px !important;
+  line-height: .9 !important;
+  letter-spacing: -.06em !important;
+}
+
+.brand-volume-score span,
+.brand-merge-score span {
+  color: #94a3b8 !important;
+  font-size: 12px !important;
+  text-align: right !important;
+}
+
 .brand-flow-card {
   border-color: rgba(34, 197, 94, .24) !important;
 }
 
-.brand-volume-stack {
-  display: flex !important;
-  overflow: hidden !important;
-  min-height: 38px !important;
-  border: 1px solid rgba(148, 163, 184, .14) !important;
-  border-radius: 16px !important;
-  background: rgba(15, 23, 42, .62) !important;
-}
-
-.brand-volume-segment {
+.brand-volume-bars,
+.brand-merge-bars {
   display: grid !important;
-  place-items: center !important;
-  min-width: 26px !important;
-  color: #020617 !important;
-  font-size: 12px !important;
-  font-weight: 900 !important;
+  gap: 6px !important;
 }
 
-.brand-volume-segment.done {
-  background: #22c55e !important;
+.brand-volume-bars.compact {
+  gap: 5px !important;
 }
 
-.brand-volume-segment.work {
-  background: #38bdf8 !important;
-}
-
-.brand-volume-segment.wait {
-  background: #64748b !important;
-  color: #f8fafc !important;
-}
-
-.brand-volume-segment.block {
-  background: #f59e0b !important;
-}
-
-.brand-volume-segment.empty {
-  flex: 1 !important;
-  background: rgba(51, 65, 85, .82) !important;
-  color: #cbd5e1 !important;
-}
-
-.brand-volume-segment i {
-  font-style: normal !important;
-}
-
-.brand-volume-bars {
-  display: grid !important;
-  gap: 7px !important;
-}
-
-.brand-volume-row {
+.brand-volume-row,
+.brand-merge-row {
   display: grid !important;
   grid-template-columns: 74px minmax(0, 1fr) 28px !important;
   align-items: center !important;
@@ -837,24 +816,29 @@
 }
 
 .brand-volume-row b,
-.brand-volume-row em {
+.brand-volume-row em,
+.brand-merge-row b,
+.brand-merge-row em {
   font-style: normal !important;
   font-weight: 700 !important;
 }
 
-.brand-volume-row em {
+.brand-volume-row em,
+.brand-merge-row em {
   color: #f8fafc !important;
   text-align: right !important;
 }
 
-.brand-volume-row span {
+.brand-volume-row span,
+.brand-merge-row span {
   overflow: hidden !important;
-  height: 6px !important;
+  height: 5px !important;
   border-radius: 999px !important;
   background: rgba(30, 41, 59, .95) !important;
 }
 
-.brand-volume-row i {
+.brand-volume-row i,
+.brand-merge-row i {
   display: block !important;
   height: 100% !important;
   border-radius: inherit !important;
@@ -876,16 +860,40 @@
   background: #f59e0b !important;
 }
 
+.brand-merge-card {
+  border-color: rgba(139, 92, 246, .25) !important;
+}
+
+.brand-merge-row.common i {
+  background: #8b5cf6 !important;
+}
+
+.brand-merge-row.single i {
+  background: #38bdf8 !important;
+}
+
+.brand-merge-row.unique i {
+  background: #ef4444 !important;
+}
+
+.brand-merge-row.locked i {
+  background: #f97316 !important;
+}
+
+.brand-merge-row.merged i {
+  background: #64748b !important;
+}
+
 .brand-period-facts {
   display: grid !important;
   grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-  gap: 8px !important;
+  gap: 6px !important;
 }
 
 .brand-period-facts span {
   display: grid !important;
   gap: 2px !important;
-  padding: 9px 10px !important;
+  padding: 7px 9px !important;
   border: 1px solid rgba(148, 163, 184, .14) !important;
   border-radius: 13px !important;
   color: #94a3b8 !important;
@@ -895,7 +903,7 @@
 
 .brand-period-facts b {
   color: #f8fafc !important;
-  font-size: 17px !important;
+  font-size: 16px !important;
 }
 
 .brand-delta {
@@ -961,7 +969,7 @@
 
 .brand-side-stack {
   display: grid !important;
-  grid-template-rows: minmax(190px, .72fr) minmax(0, 1fr) !important;
+  grid-template-rows: 190px minmax(0, 1fr) !important;
   gap: 14px !important;
   min-height: 0 !important;
   overflow: hidden !important;
@@ -979,7 +987,7 @@
 }
 
 .brand-graph-shell {
-  flex: 1 1 auto !important;
+  flex: 1 1 0 !important;
   min-height: 0 !important;
   overflow: hidden !important;
   border: 1px solid rgba(148, 163, 184, .1) !important;
@@ -988,7 +996,8 @@
 }
 
 .brand-overview-graph {
-  min-height: 360px !important;
+  min-height: 0 !important;
+  height: 100% !important;
 }
 
 .brand-graph-legend,
@@ -1031,14 +1040,15 @@
 
 .brand-flow-strip {
   display: grid !important;
-  flex: 1 1 auto !important;
-  gap: 6px !important;
-  min-height: 126px !important;
+  flex: 0 0 92px !important;
+  gap: 4px !important;
+  height: 92px !important;
+  min-height: 0 !important;
   overflow: hidden !important;
   align-items: end !important;
-  padding: 10px !important;
+  padding: 8px !important;
   border: 1px solid rgba(148, 163, 184, .1) !important;
-  border-radius: 18px !important;
+  border-radius: 16px !important;
   background: rgba(2, 6, 23, .26) !important;
 }
 
@@ -1059,11 +1069,12 @@
   align-items: end !important;
   justify-content: center !important;
   gap: 2px !important;
-  min-height: 92px !important;
+  height: 58px !important;
+  min-height: 0 !important;
 }
 
 .brand-flow-bars i {
-  width: 5px !important;
+  width: 4px !important;
   border-radius: 999px 999px 3px 3px !important;
 }
 
@@ -1075,11 +1086,6 @@
 .brand-flow-bars i.done,
 .brand-calendar-legend i.done {
   background: #22c55e !important;
-}
-
-.brand-flow-bars i.work,
-.brand-calendar-legend i.work {
-  background: #8b5cf6 !important;
 }
 
 .brand-flow-day b {
@@ -1198,6 +1204,7 @@
 
 .brand-kit-table {
   display: grid !important;
+  align-content: start !important;
   gap: 10px !important;
   min-height: 0 !important;
   overflow-y: auto !important;
@@ -1209,7 +1216,8 @@
   grid-template-columns: minmax(120px, 1fr) minmax(70px, .5fr) minmax(132px, .95fr) !important;
   align-items: center !important;
   gap: 9px !important;
-  padding: 11px !important;
+  min-height: 0 !important;
+  padding: 10px !important;
   border: 1px solid rgba(148, 163, 184, .14) !important;
   border-radius: 16px !important;
   background: rgba(15, 23, 42, .62) !important;
